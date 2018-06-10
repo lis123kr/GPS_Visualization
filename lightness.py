@@ -49,7 +49,7 @@ for i, ax in enumerate(axes.flat):
     locs = []  # locations for text labels
 
     for j, cmap in enumerate(cmap_list[i*dsub:(i+1)*dsub]):
-
+        
         # Get RGB values for colormap and convert the colormap in
         # CAM02-UCS colorspace.  lab[0, :, 0] is the lightness.
         rgb = cm.get_cmap(cmap)(x)[np.newaxis, :, :3]
@@ -70,6 +70,8 @@ for i, ax in enumerate(axes.flat):
         # print(y_)
         yy_ = range(0, 100)
         x_ =[ j for _ in range(len(x))]
+        print(x_[0])
+        ax.scatter(x_[0], 105, color='blue', s=100, linewidths=0.0)
         ax.scatter(x_, yy_, c=c_, cmap=cmap, s=100, linewidths=0.0)
 
         # Store locations for colormap labels
