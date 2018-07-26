@@ -1,11 +1,11 @@
 from matplotlib import colors
 import matplotlib.pyplot as plt
 from numpy import where, linspace
-from mcolors import mcols
+from mcolors import mcols, scols
 from Slider import ZoomSlider
 
 # filename = 'N_pOB strain_기본.xlsx'
-filename = 'N_백신주 통합.xlsx'
+filename = 'N_백신주 ORF62.xlsx'
 basepair = ['A', 'G', 'C', 'T']
 duma_position, duma_Genome, duma_Repeat, duma_ORF = 'Du_position', 'Genome strucure', 'Repeat region', 'ORF'
 dumas_col = [ duma_position, duma_Genome, duma_Repeat, duma_ORF ]
@@ -160,7 +160,7 @@ def get_dumas_range(sheet):
 def draw_vspans(ax_):
 	global range_dumas
 	from numpy import random
-	random.seed(1234)
+	# random.seed(1234)
 	ymax = 50
 	for c in range_dumas.keys():
 		if c == duma_Genome:
@@ -172,8 +172,12 @@ def draw_vspans(ax_):
 		for d in range_dumas[c].keys():
 			if d=='spans':
 				continue
-			r, g, b = random.uniform(0, 1, 3)
-			range_dumas[c]['spans'].append(ax_.axvspan(range_dumas[c][d]['min'], range_dumas[c][d]['max'], 0, ymax, color=(r,g,b), alpha=0.2))
+			# r, g, b = random.uniform(0, 1, 3)
+			range_dumas[c]['spans'].append(ax_.axvspan(range_dumas[c][d]['min'], range_dumas[c][d]['max'], 
+				0, ymax, color=scols.get_color(), alpha=0.1))
+
+	scols.cur = 0
+
 def button_click(label):
 	print(label)
 	pass
@@ -213,9 +217,9 @@ if __name__ == '__main__':
 	range_dumas = get_dumas_range(sheet[0])
 
 	fig, ax = plt.subplots(3, 1, sharex=True)
+	ax[0].set_title('Click on legend rectangle to toggle data on/off', fontdict={'fontsize' : 8 })
 	fig.set_size_inches(12, 7, forward=True)
 	plt.subplots_adjust(left=0.05, bottom=0.15, right=0.98, hspace=0.15)
-
 	bpdiff = []
 	bpdiff_trans = [] # major transition
 
@@ -225,7 +229,7 @@ if __name__ == '__main__':
 
 	spatches = [ mpatches.Patch(color=colors[idx], label=basepair[idx]) for idx in range(4) ]
 
-	leg = fig.legend(handles=spatches, labels=basepair, bbox_to_anchor=(0.53, .90, 0.45, .102), loc=3,
+	leg = fig.legend(handles=spatches, labels=basepair, bbox_to_anchor=(0.53, .91, 0.45, .102), loc=3,
            ncol=4, mode="expand", borderaxespad=0.)
 
 	for i in range(nsheet):
@@ -251,6 +255,8 @@ if __name__ == '__main__':
 	for i in range(len(bpdiff)):
 		sc = [ {'major' : [], 'minor': [] }, {'major' : [], 'minor': [] }, 
 		       {'major' : [], 'minor': [] }, {'major' : [], 'minor': [] } ]
+
+		draw_vspans(ax[i])
 		
 		for a in range(4):
 
@@ -293,9 +299,7 @@ if __name__ == '__main__':
 
 			# end for b
 		#end for a
-		sct.append(sc)
-
-		draw_vspans(ax[i])
+		sct.append(sc)		
 
 		ax[i].set_ylim([0, 50])
 		ax[i].set_ylabel('Variation of MAF(%)')
@@ -308,7 +312,7 @@ if __name__ == '__main__':
 
 	labels = [ key for key in dumas.keys()]
 	spatches2 = [ mpatches.Patch(color='grey', label=labels[idx]) for idx in range(3) ]
-	leg2 = fig.legend(handles=spatches2, labels=labels, bbox_to_anchor=(0.05, .90, 0.44, .102), loc=3,
+	leg2 = fig.legend(handles=spatches2, labels=labels, bbox_to_anchor=(0.05, .91, 0.44, .102), loc=3,
            ncol=3, mode="expand", borderaxespad=0.)
 
 	# lef picker
@@ -333,8 +337,11 @@ if __name__ == '__main__':
                     arrowprops=dict(arrowstyle="->")))
 
 	fig.canvas.mpl_connect("button_press_event", click_)
+
+	
+	ax[-1].text(105500, 49, 'IRS', fontdict={'fontsize':7})
 	plt.show()
 
 	# 추가할 것
-	# Repeat, Genomes, ORF text 태깅..
-	# legend text 클릭하라는 안내글..
+	# click_ 함수 변경 -> # Repeat, Genomes, ORF text 탐색,, 가까운 item 있으면 annot / 없으면 클릭한 자리 Repeat,Genome,ORF표기
+	
