@@ -197,3 +197,36 @@ class mcols:
 			cls.cmaps[cmap_] = mcolors.LinearSegmentedColormap(cmap_, cls.colors[cmap_], 100)
 
 		return cls.cmaps[cmap_]
+
+
+
+class scols:
+	colors = [
+		'darkorchid',
+		'gold',
+		'firebrick',
+		'seagreen',
+		'blue',
+		'sandybrown',
+		'plum',
+		'darkkhaki',
+		'deepskyblue',
+		'mediumpurple',
+		'rosybrown',
+		'olivedrab',
+		'royalblue',
+		'sienna',
+		'darkcyan',
+		'deeppink',
+		'orange',
+		'mediumaquamarine',
+		'crimson'
+	]
+	cur = 0
+	@classmethod
+	def get_color(cls):
+		c = cls.colors[cls.cur]
+		cls.cur += 1
+		if len(cls.colors) == cls.cur:
+			cls.cur = 0
+		return c
