@@ -8,3 +8,5 @@ Visualization of Genetic Polymorphic Site using matplotlib
 
 ### Demo10.py
 ![Image](asset/demo10.png)
+#### Demo10.Export
+![Image](asset/demo10_export.png)
