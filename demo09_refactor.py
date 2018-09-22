@@ -7,13 +7,13 @@ from tqdm import tqdm
 import warnings, time
 warnings.filterwarnings("ignore")
 
-filename = 'N_pOB.xlsx'
+filename = 'N_백신주 ORF62.xlsx'
 basepair = ['A', 'G', 'C', 'T']
 duma_position, duma_Genome, duma_Repeat, duma_ORF = 'Du_position', 'Genome strucure', 'Repeat region', 'ORF'
 dumas_col = [ duma_position, duma_Genome, duma_Repeat, duma_ORF ]
-dumas = { duma_Genome : [], duma_Repeat: [], duma_ORF : []}
-range_dumas = { duma_Genome : dict(), duma_Repeat : dict(), duma_ORF : dict()}
-min_, max_ = 0,0
+dumas = { duma_Genome : [], duma_Repeat: [], duma_ORF : [] }
+spans = dict() #{ duma_Genome : dict(), duma_Repeat : dict(), duma_ORF : dict()}
+
 seq_size, markersize = 100, 10
 xlin = linspace(0.0, 1.0, seq_size)
 mcolor = [ 'Blues', 'Orgs', 'Grns', 'Reds' ]
@@ -25,7 +25,8 @@ colors = ['blue', 'orange', 'lightgreen', 'red']
 labels = ['A', 'G', 'C', 'T']
 annot, sct, leg = [], [], None
 annot_gere = dict()
-
+B = None
+bpdiff = None
 major_visiable = [ True, True, True, True]
 base_range, bidx = [ 0., 5., 10., 15., 20., 25., 30., 35., 40., 45.], 0
 variation_range, vidx = [ 5., 10., 15., 20., 25., 30., 35., 40., 45.], 0
@@ -55,9 +56,9 @@ def onpick(event):
 				mj.set_visible( vis )
 				mn.set_visible( vis )
 	elif label == duma_ORF or label ==duma_Repeat or label ==duma_Genome:
-		global range_dumas
-		for sc in range_dumas[label]['spans']:
-			sc.set_visible(vis)		
+		for d in B.range_dumas[label].keys():
+			for sc in spans[label+str(d)]:
+				sc.set_visible(vis)
 		for an_ in annot_gere[label]:			
 			an_.set_visible(vis)
 	else:
@@ -93,7 +94,8 @@ def onpick(event):
 							mjcolors_[:,-1][ logical_not(mj_vis_arr) ] = 0
 						else:
 							mjc = list(mjcolors_[0][:-1])
-							mjcolors_ = [ mjc + [1.] if i else mjc+[0.]  for i in mj_vis_arr ]
+							# !!
+							mjcolors_ = [ mjc + [1.] if mi else mjc+[0.]  for mi in mj_vis_arr ]
 
 						if len(mncolors_) == len(mn_vis_arr):
 							mncolors_[:,-1][ mn_vis_arr ] = 1
@@ -165,81 +167,13 @@ def click_(event):
 						annot[i].set_visible(True)
 	fig.canvas.draw_idle()
 
-def get_major_minor(Passage):	
-	from numpy import zeros
-	from pandas import DataFrame
-	"""	
-		- major : 염기 A, G, C, T 중 가장 큰 값
-		- minor : 염기 중 두번째로 큰 값, argsort 후 인덱스 2의 값을 추출
-	"""
-	ranked_df = Passage.values.argsort(axis=1)		
-	arr = zeros((len(Passage),1))
-	for i, d in enumerate(ranked_df[:,2]):
-		arr[i] = Passage[i:i+1][basepair[d]]
-	major = DataFrame(Passage.max(axis=1))
-	minor = DataFrame(arr, index=major.index)
-	return major, minor
-
-def preprocessing(bp):
-	from pandas import DataFrame
-	from numpy import divide
-
-	bp['sum'] = bp[basepair].sum(axis=1)
-	bp = bp[ bp['sum'] >= 35.0 ]
-
-	_, bp['minor'] = get_major_minor(bp[basepair])
-
-	argx = -bp[basepair]
-	bps = argx.values.argsort(axis=1)
-	bp['Mj_seq'] = DataFrame(bps[:,0], index=bp.index)
-	bp['Mn_seq'] = DataFrame(bps[:,1], index=bp.index)
-
-	bp['maf'] = divide(bp[['minor']], bp[['sum']]) * 100
-
-	global min_, max_
-	min_ = min(min_, bp[duma_position].values[0]) if min_ else bp[duma_position].values[0]
-	max_ = max(max_, bp[duma_position].values[-1]) if max_ else bp[duma_position].values[-1]
-
-	# minor 컬럼 추가..
-	# 180725 : GenomeSt, RepeatRe, ORF 의 hspace를 위해 dumas_col 추가
-	# 변경 전 : return bp[[duma_position] + ['maf', 'minor', 'Mj_seq', 'Mn_seq']]
-	return bp[ dumas_col + ['maf', 'minor', 'Mj_seq', 'Mn_seq'] ]
-
 def get_uppery(y):
 	y_ = [ i[-1] for i in y ]
 	return y_
 
-def get_dumas(sheet):
-	from pandas import unique
-	dumas = { duma_Genome : [], duma_Repeat: [], duma_ORF : []}
-	for i in unique( sheet[duma_Genome] ):
-		if str(i) != 'nan':
-			dumas[duma_Genome].append(i)
-
-	for i in unique( sheet[duma_Repeat] ):
-		if str(i) != 'nan':
-			dumas[duma_Repeat].append(i)
-
-	for i in unique( sheet[duma_ORF] ):
-		if str(i) == 'nan':
-			continue
-		if str(i).find('/') == -1:
-			dumas[duma_ORF].append(i)
-	return dumas
-
-def get_dumas_range(sheet):
-	global dumas
-	col = [ duma_Genome, duma_Repeat, duma_ORF]
-	for c in col:
-		range_dumas[c]['spans'] = []
-		for d in dumas[c]:
-			d_ = sheet[ sheet[c] == d][duma_position].values
-			range_dumas[c][d] = {'min': d_[0], 'max' : d_[-1] }
-	return range_dumas
-
-def draw_vspans(ax_):
-	global range_dumas
+def draw_vspans(ax_, range_dumas):
 	from numpy import random
+	# global range_dumas
 	# random.seed(1234)
 	ymax = 50
 	for c in range_dumas.keys():
@@ -250,10 +184,10 @@ def draw_vspans(ax_):
 		else:		
 			ymax = 1
 		for d in range_dumas[c].keys():
-			if d=='spans':
-				continue
 			# r, g, b = random.uniform(0, 1, 3)
-			range_dumas[c]['spans'].append(ax_.axvspan(range_dumas[c][d]['min'], range_dumas[c][d]['max'], 
+			spans[c+str(d)] = spans.get(c+str(d), [])
+
+			spans[c+str(d)].append(ax_.axvspan(range_dumas[c][d]['min'], range_dumas[c][d]['max'], 
 				0, ymax, color=scols.get_color(), alpha=0.1))
 
 	scols.cur = 0
@@ -306,48 +240,35 @@ def xlim_changed_event(event):
 
 if __name__ == '__main__':
 	import matplotlib.patches as mpatches
-	from matplotlib.widgets import CheckButtons
+	from matplotlib.widgets import Button
 	from pandas import ExcelFile, DataFrame, merge
 	from numpy import linspace, logical_and, logical_or, array, abs, logical_not
-	print('Read xlsx file...')
-	xls = ExcelFile(filename)
-	print('Preprocessing Data...')
-	sheet = [ preprocessing(xls.parse(name)) for name in xls.sheet_names ]
+	from book import Book
 
-	dumas = get_dumas(sheet[0])	
-	nsheet = len(sheet)
-	range_dumas = get_dumas_range(sheet[0])
+	params = {'duma_position' : duma_position, 'duma_Genome' : duma_Genome, 
+		'duma_Repeat' : duma_Repeat, 'duma_ORF' : duma_ORF}
+
+	B = Book(filename, params)
+	B.preprocessing()
+	dumas = B.dumas_info
+	nsheet = B.nsheet
+	bpdiff = B.bpdiff
+	ylabel = B.datalabel
+
+
+	# 임의지정을 통한 교환
+	ylabel[1], ylabel[2] = ylabel[2], ylabel[1]
+	bpdiff[1], bpdiff[2] = bpdiff[2], bpdiff[1]
+	# bpdiff_trans[1], bpdiff_trans[2] = bpdiff_trans[2], bpdiff_trans[1]
+	
 
 	fig, ax = plt.subplots(3, 1, sharex=True)
 	ax[0].set_title('Click on legend rectangle to toggle data on/off', fontdict={'fontsize' : 8 })
 	fig.set_size_inches(12, 7, forward=True)
 	plt.subplots_adjust(left=0.05, bottom=0.15, right=0.98, hspace=0.15)
-	bpdiff = []
-	bpdiff_trans = [] # major transition
+	# bpdiff_trans = [] # major transition
 
-	strp = ['low', 'middle', 'high']
-	ylabel = []#['low-middle', 'low-high', 'middle-high']
 	ax = ax[::-1]
-
-	for i in range(nsheet):
-		for j in range(nsheet):
-			if i >= j:
-				continue
-			ylabel.append(strp[i]+'-'+strp[j])
-			merged = merge(sheet[i], sheet[j], how='outer', on=dumas_col, left_index=True, right_index=True)
-
-			# 공통 
-			cond = abs(merged['maf_x'] - merged['maf_y']) >= 5.0
-
-			cond1 = merged['Mj_seq_x'] == merged['Mj_seq_y']
-			cond2 = merged['Mj_seq_x'] != merged['Mj_seq_y']
-			bpdiff.append(merged[ logical_and(cond, cond1).values ])
-			bpdiff_trans.append( merged[ logical_and(cond, cond2).values ])
-
-	# 임의지정을 통한 교환
-	ylabel[1], ylabel[2] = ylabel[2], ylabel[1]
-	bpdiff[1], bpdiff[2] = bpdiff[2], bpdiff[1]
-	bpdiff_trans[1], bpdiff_trans[2] = bpdiff_trans[2], bpdiff_trans[1]
 
 	# major가 같은 것 들만
 	print('Run matplotlib...')
@@ -355,7 +276,7 @@ if __name__ == '__main__':
 		sc = [ {'major' : [], 'minor': [] }, {'major' : [], 'minor': [] }, 
 		       {'major' : [], 'minor': [] }, {'major' : [], 'minor': [] } ]
 
-		draw_vspans(ax[i])
+		draw_vspans(ax[i], B.range_dumas)
 		
 		for a in range(4):
 
@@ -374,7 +295,7 @@ if __name__ == '__main__':
 				cond3 = logical_or(bpdiff[i]['minor_x'] == 0, bpdiff[i]['Mn_seq_x'] == b)				
 				cond3 = logical_and(cond2, cond3)
 
-				d = bpdiff[i][ logical_and(cond1, cond3).values ]
+				d = B.get_bpdiff_cond(index=i, cond=logical_and(cond1, cond3)) #bpdiff[i][ logical_and(cond1, cond3).values ]
 				if len(d) > 0:
 					y_ = [ linspace(d_.maf_x, d_.maf_y, seq_size) for d_ in d[['maf_x', 'maf_y']].itertuples() ]					
 					x_ = array(y_)
@@ -397,7 +318,7 @@ if __name__ == '__main__':
 					draw_minor_transition(ax[i], sc, d, a, b)
 			# end for b
 		#end for a
-		sct.append(sc)		
+		sct.append(sc)
 
 		ax[i].set_ylim([0, 50])
 		ax[i].set_ylabel('Variation of MAF(%)')
@@ -405,7 +326,7 @@ if __name__ == '__main__':
 
 	# ZoomSlider of Dumas position
 	zaxes = plt.axes([0.08, 0.07, 0.90, 0.03], facecolor='lightgoldenrodyellow')
-	zslider = ZoomSlider(zaxes, 'Dumas Position', valmin=min_, valmax=max_, valleft=min_, valright=max_, color='lightblue', valstep=1.0)
+	zslider = ZoomSlider(zaxes, 'Dumas Position', valmin=B.minpos, valmax=B.maxpos, valleft=B.minpos, valright=B.maxpos, color='lightblue', valstep=1.0)
 	zslider.on_changed(update_xlim)
 
 
@@ -432,19 +353,19 @@ if __name__ == '__main__':
 		# 
 		# x.callbacks.connect('xlim_changed', xlim_changed_event)
 
-	for c in range_dumas.keys():
+	for c in B.range_dumas.keys():
 		annot_gere[c] = []
 		ay_ = 0.85 if c == duma_Repeat else 0.7
 		if c == duma_ORF: ay_ = 1.
 		for d in dumas[c]:
-			annot_gere[c].append(ax[-1].annotate(d, xy=(range_dumas[c][d]['min'], 50*ay_), xytext=(-20,10),
+			annot_gere[c].append(ax[-1].annotate(d, xy=(B.range_dumas[c][d]['min'], 50*ay_), xytext=(-20,10),
 				textcoords="offset points", bbox=dict(boxstyle="round", fc="w"), arrowprops=dict(arrowstyle="fancy")))
 
 	for an_ in annot:
 		an_.set_visible(False)
 		an_.set_zorder(10)
 
-	for c in range_dumas.keys():
+	for c in B.range_dumas.keys():
 		for an_ in annot_gere[c]:
 			an_.set_visible(False)
 
